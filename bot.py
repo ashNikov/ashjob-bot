@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "scrapers"))
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aiogram.types import (Message, CallbackQuery, BotCommand,
                            InlineKeyboardMarkup, InlineKeyboardButton,
                            ReplyKeyboardMarkup, KeyboardButton)
@@ -166,12 +167,35 @@ async def cb_draft(cb: CallbackQuery):
         await bot.send_message(MY_CHAT_ID, f"Draft failed: {type(e).__name__}: {e}")
 
 
+
+async def push_jobs(reason="Daily scan"):
+    """Run the pipeline and push new good-fit jobs to Uwem's chat."""
+    good = gather_good_jobs()
+    if not good:
+        await bot.send_message(MY_CHAT_ID, f"{reason}: no new good-fit jobs.")
+        return
+    await bot.send_message(MY_CHAT_ID, f"{reason}: {len(good)} new good-fit job(s)!")
+    import html as _html
+    for j in good:
+        text = (f"<b>{_html.escape(j['title'])}</b>\n"
+                f"{_html.escape(j['company'])}  |  {_html.escape(j['location'])}\n"
+                f"Source: {_html.escape(j['source'])}")
+        try:
+            await bot.send_message(MY_CHAT_ID, text, parse_mode="HTML",
+                                   reply_markup=job_buttons(j["url"]))
+        except Exception as e:
+            print(f"[push fail] {j.get('title','?')}: {e}")
+
+
 async def main():
     await bot.set_my_commands([
         BotCommand(command="findjobs", description="Scan for new jobs"),
         BotCommand(command="start", description="Check bot is online"),
     ])
-    print("Bot starting... commands registered. Ctrl+C to stop")
+    scheduler = AsyncIOScheduler(timezone="Africa/Lagos")
+    scheduler.add_job(push_jobs, "cron", hour=8, minute=0)
+    scheduler.start()
+    print("Bot starting... daily scan set for 08:00 WAT. Ctrl+C to stop")
     await dp.start_polling(bot)
 
 
