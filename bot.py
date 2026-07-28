@@ -3,7 +3,8 @@ AshJob bot — Telegram approval interface.
 Sends good-fit jobs with buttons. Listens only to Uwem's chat.
 No cover letters or sending yet — just the approval loop.
 """
-import os, sys, asyncio, csv, html
+import os, sys, asyncio, csv, html, openpyxl
+from aiogram.types import FSInputFile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "scrapers"))
 
 from dotenv import load_dotenv
@@ -73,6 +74,8 @@ def job_buttons(url):
         InlineKeyboardButton(text="🔍 Verify", url=url),
     ], [
         InlineKeyboardButton(text="📝 Draft Letter", callback_data=f"draft|{jid}"),
+    ], [
+        InlineKeyboardButton(text="✅ Applied", callback_data=f"applied|{jid}"),
     ]])
 
 
@@ -187,9 +190,57 @@ async def push_jobs(reason="Daily scan"):
             print(f"[push fail] {j.get('title','?')}: {e}")
 
 
+
+@dp.callback_query(F.data.startswith("applied|"))
+async def cb_applied(cb: CallbackQuery):
+    jid = cb.data.split("|", 1)[1]
+    set_status_by_id(jid, "applied")
+    await cb.answer("Marked as applied ✅")
+    await cb.message.edit_reply_markup(reply_markup=None)
+
+
+
+@dp.message(Command("log"))
+async def log_cmd(msg: Message):
+    if msg.chat.id != MY_CHAT_ID:
+        return
+    if not os.path.exists(CSV_PATH):
+        await msg.answer("No jobs logged yet.")
+        return
+    with open(CSV_PATH, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    counts = {}
+    for r in rows:
+        s = r.get("status", "new")
+        counts[s] = counts.get(s, 0) + 1
+    summary = "Application tracker:\n" + "\n".join(
+        f"  {k}: {v}" for k, v in sorted(counts.items()))
+    await msg.answer(summary)
+
+    # build spreadsheet
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Applications"
+    headers = ["Date Seen", "Company", "Title", "Location",
+               "Source", "Status", "URL"]
+    ws.append(headers)
+    for r in rows:
+        ws.append([r.get("first_seen",""), r.get("company",""),
+                   r.get("title",""), r.get("location",""),
+                   r.get("source",""), r.get("status",""), r.get("url","")])
+    for col in ws.columns:
+        width = max((len(str(c.value)) for c in col if c.value), default=10)
+        ws.column_dimensions[col[0].column_letter].width = min(width + 2, 50)
+    out = os.path.join(os.path.dirname(CSV_PATH), "applications.xlsx")
+    wb.save(out)
+    await msg.answer_document(FSInputFile(out),
+                              caption="Your application log")
+
+
 async def main():
     await bot.set_my_commands([
         BotCommand(command="findjobs", description="Scan for new jobs"),
+        BotCommand(command="log", description="View application tracker"),
         BotCommand(command="start", description="Check bot is online"),
     ])
     scheduler = AsyncIOScheduler(timezone="Africa/Lagos")
