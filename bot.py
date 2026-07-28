@@ -16,6 +16,7 @@ from aiogram.types import (Message, CallbackQuery, BotCommand,
 from tracker import filter_new, CSV_PATH, job_id
 from matcher import seniority_bucket
 import remotive, remoteok, weworkremotely
+import drafter
 
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -53,12 +54,24 @@ def set_status_by_id(jid, status):
             w.writeheader(); w.writerows(rows)
 
 
+
+def get_job_by_id(jid):
+    """Return (title, company, url) for a job id from the CSV."""
+    with open(CSV_PATH, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            if r["id"] == jid:
+                return r["title"], r["company"], r["url"]
+    return None, None, None
+
+
 def job_buttons(url):
     jid = job_id({"url": url})
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="✅ Interested", callback_data=f"yes|{jid}"),
         InlineKeyboardButton(text="❌ Skip", callback_data=f"no|{jid}"),
         InlineKeyboardButton(text="🔍 Verify", url=url),
+    ], [
+        InlineKeyboardButton(text="📝 Draft Letter", callback_data=f"draft|{jid}"),
     ]])
 
 
@@ -132,6 +145,25 @@ async def cb_no(cb: CallbackQuery):
     set_status_by_id(jid, "skipped")
     await cb.answer("Skipped ❌")
     await cb.message.edit_reply_markup(reply_markup=None)
+
+
+
+@dp.callback_query(F.data.startswith("draft|"))
+async def cb_draft(cb: CallbackQuery):
+    jid = cb.data.split("|", 1)[1]
+    title, company, url = get_job_by_id(jid)
+    if not title:
+        await cb.answer("Job not found in log.")
+        return
+    await cb.answer("Drafting your letter...")
+    await bot.send_message(MY_CHAT_ID, f"Drafting for {title} @ {company}...")
+    try:
+        letter = drafter.draft(title, company, "")
+        # send as plain text so it's easy to copy; chunk if long
+        for i in range(0, len(letter), 3500):
+            await bot.send_message(MY_CHAT_ID, letter[i:i+3500])
+    except Exception as e:
+        await bot.send_message(MY_CHAT_ID, f"Draft failed: {type(e).__name__}: {e}")
 
 
 async def main():
