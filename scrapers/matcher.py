@@ -70,3 +70,23 @@ def is_geo_ok(location: str) -> bool:
 def passes(title: str, tags: list, location: str) -> bool:
     """A job survives only if it clears BOTH gates."""
     return is_relevant(title, tags) and is_geo_ok(location)
+
+
+# --- GATE 3: SENIORITY ---
+# Over-level for ~2 yrs experience — drop these
+SENIORITY_DROP = [
+    "director", "vp ", "vice president", "head of", "principal",
+    "staff ", "manager", " lead", "lead ", "chief", "architect",
+]
+# A reach but applyable — flag, don't hide
+SENIORITY_STRETCH = ["senior", "sr.", "sr ", "iv", " iii"]
+
+
+def seniority_bucket(title: str) -> str:
+    """Return 'good', 'stretch', or 'drop' based on title level."""
+    t = (title or "").lower()
+    if any(k in t for k in SENIORITY_DROP):
+        return "drop"
+    if any(k in t for k in SENIORITY_STRETCH):
+        return "stretch"
+    return "good"
