@@ -1,6 +1,6 @@
 """RemoteOK scraper — fetches jobs, uses shared matcher for relevance."""
 import requests
-from matcher import is_relevant
+from matcher import is_relevant_strict, is_geo_ok, is_fresh
 
 FEED_URL = "https://remoteok.com/api"
 HEADERS = {"User-Agent": "ashjob-bot/0.1 (personal job search; s.uwemudo@gmail.com)"}
@@ -23,7 +23,13 @@ def fetch():
 
 
 def fetch_relevant():
-    return [j for j in fetch() if is_relevant(j["title"], j["tags"])]
+    out = []
+    for j in fetch():
+        if (is_relevant_strict(j["title"])
+                and is_geo_ok(j["location"])
+                and is_fresh(j.get("posted", ""))):
+            out.append(j)
+    return out
 
 
 if __name__ == "__main__":

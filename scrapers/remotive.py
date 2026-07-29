@@ -23,7 +23,7 @@ def fetch():
 
 
 def fetch_relevant():
-    return [j for j in fetch() if passes(j["title"], j["tags"], j["location"])]
+    return [j for j in fetch() if passes(j["title"], j["tags"], j["location"], j.get("posted",""))]
 
 
 if __name__ == "__main__":

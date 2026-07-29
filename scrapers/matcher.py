@@ -27,6 +27,12 @@ def is_relevant(title: str, tags: list) -> bool:
     return False
 
 
+def is_relevant_strict(title: str) -> bool:
+    """Title-only match for noisy sources (e.g. RemoteOK spam-tags everything)."""
+    title_l = (title or "").lower()
+    return any(kw in title_l for kw in TITLE_KEYWORDS)
+
+
 # --- GATE 2: GEO ---
 # KEEP if location shows any of these — open to Uwem in Nigeria
 GEO_ALLOW = [
@@ -67,9 +73,9 @@ def is_geo_ok(location: str) -> bool:
     return False  # default drop when unsure — surgical, not bulldozer
 
 
-def passes(title: str, tags: list, location: str) -> bool:
-    """A job survives only if it clears BOTH gates."""
-    return is_relevant(title, tags) and is_geo_ok(location)
+def passes(title: str, tags: list, location: str, posted: str = "") -> bool:
+    """A job survives only if it clears relevance, geo, AND freshness."""
+    return is_relevant(title, tags) and is_geo_ok(location) and is_fresh(posted)
 
 
 # --- GATE 3: SENIORITY ---
@@ -90,3 +96,26 @@ def seniority_bucket(title: str) -> str:
     if any(k in t for k in SENIORITY_STRETCH):
         return "stretch"
     return "good"
+
+
+# --- GATE 4: FRESHNESS ---
+# Drop jobs posted more than MAX_AGE_DAYS ago.
+from datetime import datetime, timezone
+from dateutil import parser as _dateparser
+
+MAX_AGE_DAYS = 4
+
+
+def is_fresh(posted: str) -> bool:
+    """True if the job was posted within MAX_AGE_DAYS. Unknown date -> keep (fail-open)."""
+    if not posted:
+        return True  # no date info -> don't drop it on that basis
+    try:
+        dt = _dateparser.parse(posted)
+        # make tz-aware for safe comparison
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        age_days = (datetime.now(timezone.utc) - dt).total_seconds() / 86400
+        return age_days <= MAX_AGE_DAYS
+    except Exception:
+        return True  # unparseable -> keep, don't lose a job over a date quirk
