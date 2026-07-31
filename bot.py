@@ -164,9 +164,18 @@ async def cb_draft(cb: CallbackQuery):
     await bot.send_message(MY_CHAT_ID, f"Drafting for {title} @ {company}...")
     try:
         letter = drafter.draft(title, company, "")
-        # send as plain text so it's easy to copy; chunk if long
+        # send the letter as its own message: tap-hold to copy on mobile
         for i in range(0, len(letter), 3500):
             await bot.send_message(MY_CHAT_ID, letter[i:i+3500])
+        # companion: apply button + reminder, positioned right after the letter
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="🚀 Open apply page", url=url),
+        ]])
+        await bot.send_message(
+            MY_CHAT_ID,
+            "☝️ Tap-hold the letter above to copy it, then open the "
+            "apply page, paste, attach your CV, and submit.",
+            reply_markup=kb)
     except Exception as e:
         await bot.send_message(MY_CHAT_ID, f"Draft failed: {type(e).__name__}: {e}")
 
