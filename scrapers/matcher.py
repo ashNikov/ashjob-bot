@@ -91,6 +91,11 @@ SENIORITY_STRETCH = ["senior", "sr.", "sr ", "iv", " iii"]
 def seniority_bucket(title: str) -> str:
     """Return 'good', 'stretch', or 'drop' based on title level."""
     t = (title or "").lower()
+    # explicit mid-level / junior markers -> always good (Uwem's level)
+    if any(m in t for m in ["mid-level", "mid level", "midlevel", "junior",
+                            "intern", "associate", "entry", " ii ", "-ii",
+                            "intermediate"]):
+        return "good"
     if any(k in t for k in SENIORITY_DROP):
         return "drop"
     if any(k in t for k in SENIORITY_STRETCH):

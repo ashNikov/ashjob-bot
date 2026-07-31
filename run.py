@@ -4,12 +4,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "scrapers"))
 
 from tracker import filter_new
 from matcher import seniority_bucket
-import remotive, remoteok, weworkremotely
+import remotive, remoteok, weworkremotely, myjobmag, jobberman
 
 SOURCES = [
     ("Remotive", remotive.fetch_relevant),
     ("RemoteOK", remoteok.fetch_relevant),
     ("WeWorkRemotely", weworkremotely.fetch_relevant),
+    ("MyJobMag", myjobmag.fetch_relevant),
+    ("Jobberman", jobberman.fetch_relevant),
 ]
 
 

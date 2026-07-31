@@ -17,7 +17,7 @@ from aiogram.types import (Message, CallbackQuery, BotCommand,
 
 from tracker import filter_new, CSV_PATH, job_id
 from matcher import seniority_bucket
-import remotive, remoteok, weworkremotely
+import remotive, remoteok, weworkremotely, myjobmag, jobberman
 import drafter
 
 load_dotenv()
@@ -28,7 +28,8 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 SOURCES = [remotive.fetch_relevant, remoteok.fetch_relevant,
-           weworkremotely.fetch_relevant]
+           weworkremotely.fetch_relevant,
+           myjobmag.fetch_relevant, jobberman.fetch_relevant]
 
 
 def gather_good_jobs():
